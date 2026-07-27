@@ -44,7 +44,7 @@ jobs:
         working-directory: ${{ steps.locate.outputs.dir }}
         run: |
           rm -rf android
-          flutter create --platforms=android --org com.callmind.app .
+          flutter create --platforms=android --org com.callmind.app --project-name callmind .
           echo 'plugins { id("org.jetbrains.kotlin.android") version "1.9.24" apply false }' >> android/settings.gradle.kts
 
       - name: Get Flutter Dependencies
