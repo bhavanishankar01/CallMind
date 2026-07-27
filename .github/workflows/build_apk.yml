@@ -25,11 +25,10 @@ jobs:
       - name: Set up Flutter SDK
         uses: subosito/flutter-action@v2
         with:
-          flutter-version: '3.19.x'
           channel: 'stable'
           cache: true
 
-      - name: Auto-Detect Flutter Directory & Build APK
+      - name: Auto-Detect Project, Regenerate Modern Android & Build APK
         run: |
           # 1. Locate directory containing pubspec.yaml
           PUBSPEC_PATH=$(find . -name "pubspec.yaml" -print -quit)
@@ -45,13 +44,19 @@ jobs:
           
           cd "$PROJECT_DIR"
           
-          # 2. Get dependencies
+          # 2. Remove legacy Android directory to prevent Gradle version mismatch
+          rm -rf android
+          
+          # 3. Regenerate modern SDK-matching Android platform files
+          flutter create --platforms=android --org com.callmind.app .
+          
+          # 4. Get dependencies
           flutter pub get
           
-          # 3. Compile Release APK
+          # 5. Compile Release APK
           flutter build apk --release
           
-          # 4. Copy generated APK to root build artifacts folder
+          # 6. Copy generated APK to root build artifacts folder
           mkdir -p $GITHUB_WORKSPACE/output_apk
           cp build/app/outputs/flutter-apk/app-release.apk $GITHUB_WORKSPACE/output_apk/CallMind-release.apk
 
