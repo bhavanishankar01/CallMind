@@ -28,69 +28,36 @@ jobs:
           channel: 'stable'
           cache: true
 
-      - name: Auto-Detect Project, Configure Kotlin & Build APK
+      - name: Locate Project Root
+        id: locate
         run: |
-          # 1. Locate directory containing pubspec.yaml
           PUBSPEC_PATH=$(find . -name "pubspec.yaml" -print -quit)
           if [ -z "$PUBSPEC_PATH" ]; then
-            echo "ERROR: Could not find pubspec.yaml in repository!"
+            echo "Could not find pubspec.yaml"
             exit 1
           fi
-          
           PROJECT_DIR=$(dirname "$PUBSPEC_PATH")
-          echo "=================================================="
-          echo "Found Flutter Project Root at: $PROJECT_DIR"
-          echo "=================================================="
-          
-          cd "$PROJECT_DIR"
-          
-          # 2. Remove legacy Android directory to prevent Gradle version mismatch
+          echo "dir=$PROJECT_DIR" >> $GITHUB_OUTPUT
+
+      - name: Regenerate Android Platform
+        working-directory: ${{ steps.locate.outputs.dir }}
+        run: |
           rm -rf android
-          
-          # 3. Regenerate Android platform files
           flutter create --platforms=android --org com.callmind.app .
-          
-          # 4. Inject Kotlin Plugin into settings.gradle.kts to fix project ':jni' method evaluation
-          cat << 'EOF' > android/settings.gradle.kts
-pluginManagement {
-    val flutterSdkPath = run {
-        val properties = java.util.Properties()
-        val localPropertiesFile = java.io.File(rootDir, "local.properties")
-        if (localPropertiesFile.exists()) {
-            localPropertiesFile.reader(Charsets.UTF_8).use { reader -> properties.load(reader) }
-        }
-        val flutterSdkPath = properties.getProperty("flutter.sdk")
-        assert(flutterSdkPath != null) { "flutter.sdk not set in local.properties" }
-        flutterSdkPath
-    }
 
-    includeBuild("$flutterSdkPath/packages/flutter_tools/gradle")
+      - name: Get Flutter Dependencies
+        working-directory: ${{ steps.locate.outputs.dir }}
+        run: flutter pub get
 
-    repositories {
-        google()
-        mavenCentral()
-        gradlePluginPortal()
-    }
-}
+      - name: Build Android Release APK
+        working-directory: ${{ steps.locate.outputs.dir }}
+        run: flutter build apk --release
 
-plugins {
-    id("dev.flutter.flutter-plugin-loader") version "1.0.0"
-    id("com.android.application") version "8.3.2" apply false
-    id("org.jetbrains.kotlin.android") version "1.9.24" apply false
-}
-
-include(":app")
-EOF
-
-          # 5. Get dependencies
-          flutter pub get
-          
-          # 6. Compile Release APK
-          flutter build apk --release
-          
-          # 7. Copy generated APK to root build artifacts folder
-          mkdir -p $GITHUB_WORKSPACE/output_apk
-          cp build/app/outputs/flutter-apk/app-release.apk $GITHUB_WORKSPACE/output_apk/CallMind-release.apk
+      - name: Prepare APK Artifact
+        run: |
+          PROJECT_DIR="${{ steps.locate.outputs.dir }}"
+          mkdir -p output_apk
+          cp "$PROJECT_DIR/build/app/outputs/flutter-apk/app-release.apk" output_apk/CallMind-release.apk
 
       - name: Upload APK Artifact for Download
         uses: actions/upload-artifact@v4
