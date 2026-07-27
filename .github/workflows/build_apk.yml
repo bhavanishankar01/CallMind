@@ -29,17 +29,34 @@ jobs:
           channel: 'stable'
           cache: true
 
-      - name: Install dependencies
-        run: flutter pub get
-
-      - name: Generate Android Platform Wrapper Files
-        run: flutter create --platforms=android --org com.callmind.app .
-
-      - name: Build Release APK
-        run: flutter build apk --release
+      - name: Auto-Detect Flutter Directory & Build APK
+        run: |
+          # 1. Locate directory containing pubspec.yaml
+          PUBSPEC_PATH=$(find . -name "pubspec.yaml" -print -quit)
+          if [ -z "$PUBSPEC_PATH" ]; then
+            echo "ERROR: Could not find pubspec.yaml in repository!"
+            exit 1
+          fi
+          
+          PROJECT_DIR=$(dirname "$PUBSPEC_PATH")
+          echo "=================================================="
+          echo "Found Flutter Project Root at: $PROJECT_DIR"
+          echo "=================================================="
+          
+          cd "$PROJECT_DIR"
+          
+          # 2. Get dependencies
+          flutter pub get
+          
+          # 3. Compile Release APK
+          flutter build apk --release
+          
+          # 4. Copy generated APK to root build artifacts folder
+          mkdir -p $GITHUB_WORKSPACE/output_apk
+          cp build/app/outputs/flutter-apk/app-release.apk $GITHUB_WORKSPACE/output_apk/CallMind-release.apk
 
       - name: Upload APK Artifact for Download
         uses: actions/upload-artifact@v4
         with:
           name: CallMind-release-apk
-          path: build/app/outputs/flutter-apk/app-release.apk
+          path: output_apk/CallMind-release.apk
