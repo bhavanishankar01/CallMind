@@ -32,6 +32,9 @@ jobs:
       - name: Install dependencies
         run: flutter pub get
 
+      - name: Generate Android Platform Wrapper Files
+        run: flutter create --platforms=android --org com.callmind.app .
+
       - name: Build Release APK
         run: flutter build apk --release
 
