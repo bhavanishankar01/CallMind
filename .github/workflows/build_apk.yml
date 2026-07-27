@@ -25,6 +25,7 @@ jobs:
       - name: Set up Flutter SDK
         uses: subosito/flutter-action@v2
         with:
+          flutter-version: '3.22.2'
           channel: 'stable'
           cache: true
 
@@ -39,11 +40,12 @@ jobs:
           PROJECT_DIR=$(dirname "$PUBSPEC_PATH")
           echo "dir=$PROJECT_DIR" >> $GITHUB_OUTPUT
 
-      - name: Regenerate Android Platform
+      - name: Regenerate Android & Configure Kotlin Plugin
         working-directory: ${{ steps.locate.outputs.dir }}
         run: |
           rm -rf android
           flutter create --platforms=android --org com.callmind.app .
+          echo 'plugins { id("org.jetbrains.kotlin.android") version "1.9.24" apply false }' >> android/settings.gradle.kts
 
       - name: Get Flutter Dependencies
         working-directory: ${{ steps.locate.outputs.dir }}
