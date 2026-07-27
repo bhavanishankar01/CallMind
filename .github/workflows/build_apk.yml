@@ -28,7 +28,7 @@ jobs:
           channel: 'stable'
           cache: true
 
-      - name: Auto-Detect Project, Regenerate Modern Android & Build APK
+      - name: Auto-Detect Project, Configure Kotlin & Build APK
         run: |
           # 1. Locate directory containing pubspec.yaml
           PUBSPEC_PATH=$(find . -name "pubspec.yaml" -print -quit)
@@ -47,16 +47,48 @@ jobs:
           # 2. Remove legacy Android directory to prevent Gradle version mismatch
           rm -rf android
           
-          # 3. Regenerate modern SDK-matching Android platform files
+          # 3. Regenerate Android platform files
           flutter create --platforms=android --org com.callmind.app .
           
-          # 4. Get dependencies
+          # 4. Inject Kotlin Plugin into settings.gradle.kts to fix project ':jni' method evaluation
+          cat << 'EOF' > android/settings.gradle.kts
+pluginManagement {
+    val flutterSdkPath = run {
+        val properties = java.util.Properties()
+        val localPropertiesFile = java.io.File(rootDir, "local.properties")
+        if (localPropertiesFile.exists()) {
+            localPropertiesFile.reader(Charsets.UTF_8).use { reader -> properties.load(reader) }
+        }
+        val flutterSdkPath = properties.getProperty("flutter.sdk")
+        assert(flutterSdkPath != null) { "flutter.sdk not set in local.properties" }
+        flutterSdkPath
+    }
+
+    includeBuild("$flutterSdkPath/packages/flutter_tools/gradle")
+
+    repositories {
+        google()
+        mavenCentral()
+        gradlePluginPortal()
+    }
+}
+
+plugins {
+    id("dev.flutter.flutter-plugin-loader") version "1.0.0"
+    id("com.android.application") version "8.3.2" apply false
+    id("org.jetbrains.kotlin.android") version "1.9.24" apply false
+}
+
+include(":app")
+EOF
+
+          # 5. Get dependencies
           flutter pub get
           
-          # 5. Compile Release APK
+          # 6. Compile Release APK
           flutter build apk --release
           
-          # 6. Copy generated APK to root build artifacts folder
+          # 7. Copy generated APK to root build artifacts folder
           mkdir -p $GITHUB_WORKSPACE/output_apk
           cp build/app/outputs/flutter-apk/app-release.apk $GITHUB_WORKSPACE/output_apk/CallMind-release.apk
 
